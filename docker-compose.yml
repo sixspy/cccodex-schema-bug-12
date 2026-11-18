@@ -1,0 +1,20 @@
+services:
+  schema-lab:
+    build: .
+    container_name: cc-schema-lab-schema-bug-12
+    ports:
+      - "7811:7100"
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "7100"
+      DATABASE_PATH: /app/instance/schema_lab.db
+    volumes:
+      - schema_lab_data:/app/instance
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:7100/login', timeout=5)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+volumes:
+  schema_lab_data:

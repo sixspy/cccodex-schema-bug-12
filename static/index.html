@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>契约换版台</title>
+  <link rel="stylesheet" href="/static/css/schema.css" />
+</head>
+<body>
+  <div class="shell">
+    <header class="top">
+      <div>
+        <p class="eyebrow" id="lab-name">契约换版台</p>
+        <h1>表契约版本与换版</h1>
+      </div>
+      <button type="button" class="ghost" id="btn-logout">退出</button>
+    </header>
+    <nav class="pills">
+      <button type="button" data-tab="contracts" class="on">契约</button>
+      <button type="button" data-tab="check">破坏性检查</button>
+      <button type="button" data-tab="apply">换版应用</button>
+      <button type="button" data-tab="reconcile">目录对账</button>
+    </nav>
+    <div class="content">
+      <p class="muted" id="msg"></p>
+      <div id="view"></div>
+    </div>
+  </div>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

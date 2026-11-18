@@ -1,0 +1,4 @@
+aiohttp>=3.10,<4
+itsdangerous>=2.2,<3
+pytest>=8.0,<9
+pytest-aiohttp>=1.0,<2
