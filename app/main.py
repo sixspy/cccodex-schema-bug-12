@@ -8,13 +8,20 @@ from app.config import Config
 from app.db import init_db
 from app.services import (
     apply_contract,
+    emit_outbound,
     list_contracts,
     list_reports,
+    mask_status,
+    masked,
+    outbound,
+    outbound_card,
+    refresh_lock,
+    refresh_masking,
     run_breaking_check,
     run_reconcile,
+    set_page_mask,
 )
 from app.services.errors import ServiceError
-from app.services.masking import masked, outbound
 
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "static"
@@ -41,6 +48,10 @@ def create_app(db_path: str | None = None) -> web.Application:
     app.router.add_post("/api/contracts/{cid}/apply", api_apply)
     app.router.add_get("/api/reconcile-reports", api_reports)
     app.router.add_post("/api/reconcile-reports", api_reconcile)
+    app.router.add_get("/api/mask", api_mask)
+    app.router.add_post("/api/mask/refresh", api_mask_refresh)
+    app.router.add_post("/api/mask/page", api_mask_page)
+    app.router.add_post("/api/outbound", api_outbound)
     return app
 
 
@@ -113,11 +124,16 @@ async def api_meta(request: web.Request):
         require_user(request)
     except ServiceError as exc:
         return json_resp({"error": exc.message}, exc.status_code)
+    db_path = request.app.get("db_path")
+    status = mask_status(db_path)
     return json_resp({
         "lab": Config.LAB_NAME,
         "product": "cc-schema-lab",
-        "phone_masked": masked("phone"),
-        "outbound_phone": outbound("phone", "13800138000"),
+        "phone_masked": masked("phone", db_path),
+        "outbound_phone": outbound("phone", "13800138000", db_path),
+        "decision": status["decision"],
+        "chip": status["chip"],
+        "compliance": status["compliance"],
     })
 
 
@@ -161,5 +177,58 @@ async def api_reconcile(request: web.Request):
         body = await request.json()
         as_of = str(body.get("as_of") or "").strip() or "2026-11-18"
         return json_resp({"report": run_reconcile(as_of, request.app.get("db_path"))})
+    except ServiceError as exc:
+        return json_resp({"error": exc.message}, exc.status_code)
+
+
+async def api_mask(request: web.Request):
+    try:
+        require_user(request)
+    except ServiceError as exc:
+        return json_resp({"error": exc.message}, exc.status_code)
+    return json_resp(mask_status(request.app.get("db_path")))
+
+
+async def api_mask_refresh(request: web.Request):
+    try:
+        user = require_user(request)
+    except ServiceError as exc:
+        return json_resp({"error": exc.message}, exc.status_code)
+    db_path = request.app.get("db_path")
+    # 进程内锁先挡同进程并发，库内锁再挡多进程：两道都不能少。
+    async with refresh_lock(db_path):
+        try:
+            return json_resp(refresh_masking(db_path, holder=user))
+        except ServiceError as exc:
+            return json_resp({"ok": False, "error": exc.message}, exc.status_code)
+
+
+async def api_mask_page(request: web.Request):
+    try:
+        require_user(request)
+        body = await request.json()
+        field = str(body.get("field") or "").strip()
+        if "masked" not in body:
+            raise ServiceError("缺少 masked 开关值。", 400)
+        masked_on = bool(body.get("masked"))
+        return json_resp(set_page_mask(field, masked_on, request.app.get("db_path")))
+    except ServiceError as exc:
+        return json_resp({"error": exc.message}, exc.status_code)
+
+
+async def api_outbound(request: web.Request):
+    try:
+        require_user(request)
+        body = await request.json()
+        field = str(body.get("field") or "").strip()
+        value = str(body.get("value") or "")
+        if not field:
+            raise ServiceError("缺少出站字段名。", 400)
+        if not all(ch.isascii() and (ch.isalnum() or ch == "_") for ch in field):
+            raise ServiceError("出站字段名只能由字母、数字、下划线组成。", 400)
+        db_path = request.app.get("db_path")
+        if body.get("commit"):
+            return json_resp(emit_outbound(field, value, db_path))
+        return json_resp({"card": outbound_card(field, value, db_path)})
     except ServiceError as exc:
         return json_resp({"error": exc.message}, exc.status_code)

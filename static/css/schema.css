@@ -57,3 +57,10 @@ button.ghost { background: transparent; }
 label { display:block; margin: 0.7rem 0; }
 input { width:100%; margin-top: 0.3rem; padding: 0.55rem 0.7rem; border-radius: 10px; border:1px solid var(--line); font: inherit; }
 .row { display:flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; }
+.tbl { width:100%; border-collapse: collapse; font-size: 0.92rem; }
+.tbl th, .tbl td { text-align:left; padding: 0.45rem 0.5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+.tbl th { color: var(--muted); font-weight: 600; }
+.flag { display:flex; align-items:center; gap: 0.35rem; margin: 0; font-size: 0.9rem; }
+.flag input { width:auto; margin:0; }
+pre { white-space: pre-wrap; word-break: break-word; margin: 0.3rem 0; }
+button:disabled { opacity: 0.5; cursor: progress; }

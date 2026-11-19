@@ -1,4 +1,5 @@
 from app.db import get_db
+from app.services.masking import compliance_state
 
 
 def run_reconcile(as_of: str, db_path: str | None = None) -> dict:
@@ -20,13 +21,26 @@ def run_reconcile(as_of: str, db_path: str | None = None) -> dict:
             else:
                 drifted += 1
                 details.append(f"{c['table_name']}:契约v{c['version_no']}/目录v{live}")
+        # 合规水线读的是同一份脱敏标记，不另起一套判定。
+        compliance = compliance_state(conn)
         summary = (
             f"对账{as_of}：对齐{matched}，漂移{drifted}"
             + (("；" + "，".join(details)) if details else "")
+            + f"；合规{'通过' if compliance['ok'] else '挂红'}"
         )
         cur = conn.execute(
-            "INSERT INTO reconcile_reports(as_of, matched, drifted, summary) VALUES (?,?,?,?)",
-            (as_of, matched, drifted, summary),
+            "INSERT INTO reconcile_reports("
+            "as_of, matched, drifted, summary, compliance_ok, compliance_detail, compliance_digest"
+            ") VALUES (?,?,?,?,?,?,?)",
+            (
+                as_of,
+                matched,
+                drifted,
+                summary,
+                1 if compliance["ok"] else 0,
+                compliance["detail"],
+                compliance["digest"],
+            ),
         )
         row = conn.execute(
             "SELECT * FROM reconcile_reports WHERE id=?", (cur.lastrowid,)
